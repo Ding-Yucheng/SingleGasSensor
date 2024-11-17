@@ -29,9 +29,9 @@
   <widget class="QTextEdit" name="Console">
    <property name="geometry">
     <rect>
-     <x>230</x>
+     <x>220</x>
      <y>40</y>
-     <width>611</width>
+     <width>621</width>
      <height>91</height>
     </rect>
    </property>
