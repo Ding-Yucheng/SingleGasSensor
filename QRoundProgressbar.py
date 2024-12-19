@@ -3,6 +3,8 @@ from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 import math
 
+normal_threshold = 67
+bad_threshold = 80
 
 class RoundProgressbar(QWidget):
 	def __init__(
@@ -12,7 +14,7 @@ class RoundProgressbar(QWidget):
 			size: int = 100,
 			thickness: int = 30,
 			value: int = 1,
-			maximum: int = 100,
+			maximum: int = 200,
 			round_edge: bool = True,
 			bg_circle_color: QColor = QColor(200, 200, 200, 255),
 			fill_bg_circle: bool = False
@@ -36,6 +38,16 @@ class RoundProgressbar(QWidget):
 		painter = QPainter()
 		painter.begin(self)
 		painter.setRenderHint(QPainter.Antialiasing)
+		painter.setPen(QPen(QColor(255, 150, 0), self._thickness / 4, Qt.SolidLine, Qt.RoundCap))
+		painter.drawLine(self.width() / 2.42 * (1.21 - math.cos(math.radians(normal_threshold/200*180))),
+						 self.width() / 2.42 * (1.21 - math.sin(math.radians(normal_threshold/200*180))),
+						 self.width() / 2 * (1 - math.cos(math.radians(normal_threshold/200*180))),
+						 self.width() / 2 * (1 - math.sin(math.radians(normal_threshold/200*180))))
+		painter.setPen(QPen(QColor(255, 0, 0), self._thickness / 4, Qt.SolidLine, Qt.RoundCap))
+		painter.drawLine(self.width() / 2.42 * (1.21 - math.cos(math.radians(bad_threshold/200*180))),
+						 self.width() / 2.42 * (1.21 - math.sin(math.radians(bad_threshold/200*180))),
+						 self.width() / 2 * (1 - math.cos(math.radians(bad_threshold/200*180))),
+						 self.width() / 2 * (1 - math.sin(math.radians(bad_threshold/200*180))))
 		painter.setPen(QPen(self._bg_circle_color, self._thickness - 1, Qt.SolidLine, Qt.RoundCap))
 		if self._fill_bg_circle:
 			painter.setBrush(QBrush(self._bg_circle_color, Qt.SolidPattern))
@@ -57,7 +69,9 @@ class RoundProgressbar(QWidget):
 			self._alen * 16
 		)
 		painter.setPen(QPen(self._color, self._thickness / 2, Qt.SolidLine, Qt.RoundCap))
-		painter.drawLine(self.width()/2, self.width()/2, self.width()/3 * (1.5 - math.cos(math.radians(self._alen))), self.width()/3 * (1.5-math.sin(math.radians(self._alen))))
+		painter.drawLine(self.width() / 2, self.width() / 2,
+						 self.width() / 3 * (1.5 - math.cos(math.radians(self._alen))),
+						 self.width() / 3 * (1.5 - math.sin(math.radians(self._alen))))
 		painter.end()
 
 	def resizeEvent(self, event):

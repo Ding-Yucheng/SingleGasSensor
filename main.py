@@ -22,17 +22,18 @@ class EmittingStream(QObject):
 
 
 class SerialReadThread(QThread):
-    update_data = pyqtSignal(int)
+    update_data = pyqtSignal(int, str)
 
     def __init__(self):
         super().__init__()
         self.is_running = False
         self.mode = [0xFE, 0x00, 0x78, 0x41, 0x00, 0x00, 0x00, 0x00, 0xb9]
         self.read_adc = [0xFE, 0x00, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x86]
+        self.current_power = [0xFE, 0x00, 0x78, 0x45, 0x00, 0x00, 0x00, 0x00, 0xbd]
+        self.target_power = [0xFE, 0x00, 0x78, 0x44, 0x00, 0x00, 0x00, 0x00, 0xbc]
 
     def run(self):
         self.is_running = True
-        
         while self.is_running:
             try:
                 ser.write(bytearray(self.read_adc))
@@ -41,15 +42,24 @@ class SerialReadThread(QThread):
                     received_data = ser.read(ser.in_waiting)
                     hex_str_data2 = hex((received_data[7] << 8) | received_data[8])[2:].zfill(4)
                     data2 = int(hex_str_data2, 16)
-                    self.update_data.emit(data2)
-                    print( data2)
+                ser.write(bytearray(self.current_power))
+                time.sleep(0.1)
+                if ser.in_waiting:
+                    power = ser.read(ser.in_waiting).decode('ascii')
+                self.update_data.emit(data2, power)
+                print(data2, power)
                 time.sleep(0.1)
             except Exception as e:
                 print("串口读取线程错误:", e)
                 break
-
     def stop(self):
         self.is_running = False
+    def set_power(self, power):
+        ser.write(("{Power:P=" + str(power) + "}").encode('ascii'))
+        time.sleep(0.1)
+        if ser.in_waiting:
+            received_data = ser.read(ser.in_waiting)
+            print(received_data)
 
 
 class Stats(QMainWindow):
@@ -73,12 +83,13 @@ class Stats(QMainWindow):
         # Events
         self.ui.scan.clicked.connect(self.Scan)
         self.ui.stop.clicked.connect(self.Stop)
+        self.ui.setpower.clicked.connect(self.Set_Power)
 
         # Figures Initialization
         self.plot = self.ui.IMG1
         self.show()
-        self.normal_threshold = 30
-        self.bad_threshold = 70
+        self.normal_threshold = 67
+        self.bad_threshold = 80
 
         self.concentrations = np.zeros(1000)
         self.x = np.arange(1000)
@@ -108,9 +119,9 @@ class Stats(QMainWindow):
     def on_connection_failed(self, error_message):
         print(error_message)
 
-    @pyqtSlot(int)
-    def Handle_Update_Image(self, new_data):
-        conc = max((1500 - new_data)/15, 0)
+    @pyqtSlot(int, str)
+    def Handle_Update_Image(self, new_data, nowpower):
+        conc = max((500 - new_data), 0)
         self.plot.set_value(conc)
         if (conc < self.normal_threshold):
             self.plot.set_color(QColor(100, 255, 100))
@@ -121,8 +132,13 @@ class Stats(QMainWindow):
         self.concentrations = np.roll(self.concentrations, -1)
         self.concentrations[-1] = conc
         self.line_conc.setData(self.x, self.concentrations)
-        self.append_to_csv(np.append(new_data,self.concentrations[-1]))
+        self.append_to_csv(np.append(new_data, self.concentrations[-1]))
+        self.ui.PowerShow.setText(nowpower)
+        self.ui.conc.display(int(conc))
         self.show()
+    def Set_Power(self):
+        power = self.ui.Power.value()
+        self.serial_read_thread.set_power(power)
 
     def Scan(self):
         try:
@@ -140,7 +156,7 @@ class Stats(QMainWindow):
     def init_csv(self):
         with open(self.csv_file, mode='w', newline='') as file:
             writer = csv.writer(file)
-            header = ["raw","conc"]
+            header = ["raw", "conc"]
             writer.writerow(header)
 
     def append_to_csv(self, new_data):
