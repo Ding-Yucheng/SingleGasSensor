@@ -12,7 +12,8 @@ from QRoundProgressbar import RoundProgressbar
 
 # 全局变量用于初始化串口，这里的参数需根据实际情况调整
 ser = serial.Serial('COM4', 115200, timeout=0.1)
-
+slope = -1
+const = 260
 
 class EmittingStream(QObject):
     textWritten = pyqtSignal(str)
@@ -121,7 +122,7 @@ class Stats(QMainWindow):
 
     @pyqtSlot(int, str)
     def Handle_Update_Image(self, new_data, nowpower):
-        conc = max((500 - new_data), 0)
+        conc = max(slope*new_data + const, 0)
         self.plot.set_value(conc)
         if (conc < self.normal_threshold):
             self.plot.set_color(QColor(100, 255, 100))
